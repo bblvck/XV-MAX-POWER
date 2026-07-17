@@ -17,6 +17,7 @@ let foods=[];
 let logs={};
 let selectedView='dashboard',selectedWeek=0,selectedDate=todayISO();
 let loaded=false;
+let dirty=false;
 
 function todayISO(){return new Date().toISOString().slice(0,10)}
 function fmt(n,d=0){return Number(n||0).toLocaleString('es-ES',{maximumFractionDigits:d})}
@@ -98,9 +99,15 @@ function renderDashboard(){
 function renderLog(){
   document.getElementById('datePicker').value=selectedDate;
   document.getElementById('logTarget').textContent=fmt(target())+' kcal';
-  document.getElementById('mealEditor').innerHTML=getLog().meals.map((m,i)=>`<div class="editor-row"><div class="meal-icon">${mealIcons[m.name]||'🍴'}</div><div class="editor-fields"><label>${m.name}<input data-meal="${i}" data-key="name" value="${m.name}"></label><label>kcal<input type="number" data-meal="${i}" data-key="kcal" value="${m.kcal||0}"></label><label>prot. g<input type="number" step=".1" data-meal="${i}" data-key="p" value="${m.p||0}"></label></div></div>`).join('');
+  document.getElementById('mealEditor').innerHTML=getLog().meals.map((m,i)=>`<div class="editor-row"><div class="meal-icon">${mealIcons[m.name]||'🍴'}</div><div class="editor-fields"><label>${m.name}<input data-meal="${i}" data-key="name" value="${m.name}"></label><label>kcal<input type="number" data-meal="${i}" data-key="kcal" value="${m.kcal||0}"></label><label>prot. g<input type="number" step=".1" data-meal="${i}" data-key="p" value="${m.p||0}"></label><label>grasa g<input type="number" step=".1" data-meal="${i}" data-key="f" value="${m.f||0}"></label><label>HC g<input type="number" step=".1" data-meal="${i}" data-key="c" value="${m.c||0}"></label></div></div>`).join('');
   const t=totals();
   document.getElementById('macroBars').innerHTML=[['Proteínas',t.p,120,'protein'],['Grasas',t.f,55,'fat'],['Hidratos',t.c,320,'carbs']].map(x=>`<div class="macro-line"><span>${x[0]}</span><div class="track"><div class="fill ${x[3]}" style="width:${Math.min(100,x[1]/x[2]*100)}%"></div></div><em>${fmt(x[1],1)} g</em></div>`).join('');
+  updateSaveBtn();
+}
+
+function updateSaveBtn(){
+  const btn=document.getElementById('saveLogBtn');
+  if(btn)btn.classList.toggle('dirty',dirty);
 }
 
 function renderFoods(){
@@ -134,12 +141,57 @@ function renderSettings(){
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800)}
 
 document.addEventListener('click',e=>{const nav=e.target.closest('[data-nav]');if(nav){selectedView=nav.dataset.nav;render();window.scrollTo({top:0,behavior:'smooth'})}});
-document.getElementById('datePicker').addEventListener('change',e=>{selectedDate=e.target.value;render()});
+document.getElementById('datePicker').addEventListener('change',e=>{selectedDate=e.target.value;dirty=false;render()});
 document.getElementById('weekSelect').addEventListener('change',e=>{selectedWeek=Number(e.target.value);renderHistory()});
 document.getElementById('foodSearch').addEventListener('input',renderFoods);
-document.getElementById('mealEditor').addEventListener('input',e=>{const i=e.target.dataset.meal;if(i===undefined)return;getLog().meals[i][e.target.dataset.key]=e.target.dataset.key==='name'?e.target.value:Number(e.target.value);saveLog();renderDashboard();renderLog()});
-document.getElementById('addMeal').addEventListener('click',()=>{getLog().meals.push({name:'Merienda',kcal:0,p:0,f:0,c:0});saveLog();render();toast('Comida añadida')});
-document.getElementById('addFood').addEventListener('click',async()=>{const name=prompt('Nombre del alimento');if(!name)return;const kcal=Number(prompt('Calorías por ración','100'))||0;const food={name,brand:'Personalizado',kcal,p:0,f:0,c:0,icon:'🥗'};await saveFood(food);foods.unshift(food);renderFoods();toast('Alimento guardado')});
+
+document.getElementById('mealEditor').addEventListener('input',e=>{
+  const i=e.target.dataset.meal;if(i===undefined)return;
+  const log=getLog();
+  log.meals[i][e.target.dataset.key]=e.target.dataset.key==='name'?e.target.value:Number(e.target.value);
+  dirty=true;
+  const t=totals();
+  document.getElementById('logTarget').textContent=fmt(target())+' kcal';
+  document.getElementById('dashCalories').textContent=fmt(t.kcal);
+  document.getElementById('dashProtein').textContent=fmt(t.p,1);
+  document.getElementById('dashSurplus').textContent=(t.kcal-target()>=0?'+':'')+fmt(t.kcal-target());
+  const pct=Math.min(100,Math.round(t.kcal/target()*100));
+  document.getElementById('ringValue').textContent=pct+'%';
+  document.getElementById('calorieRing').style.background=`conic-gradient(var(--accent) ${pct*3.6}deg,rgba(255,255,255,0.08) ${pct*3.6}deg)`;
+  document.getElementById('macroBars').innerHTML=[['Proteínas',t.p,120,'protein'],['Grasas',t.f,55,'fat'],['Hidratos',t.c,320,'carbs']].map(x=>`<div class="macro-line"><span>${x[0]}</span><div class="track"><div class="fill ${x[3]}" style="width:${Math.min(100,x[1]/x[2]*100)}%"></div></div><em>${fmt(x[1],1)} g</em></div>`).join('');
+  updateSaveBtn();
+});
+
+document.getElementById('saveLogBtn').addEventListener('click',async()=>{
+  if(!dirty)return;
+  const btn=document.getElementById('saveLogBtn');
+  btn.textContent='Guardando...';
+  btn.disabled=true;
+  await saveLog();
+  dirty=false;
+  btn.textContent='Guardado ✓';
+  btn.classList.remove('dirty');
+  renderDashboard();
+  setTimeout(()=>{btn.textContent='Guardar día';btn.disabled=false},1200);
+  toast('Guardado en Supabase');
+});
+
+document.getElementById('addMeal').addEventListener('click',()=>{getLog().meals.push({name:'Merienda',kcal:0,p:0,f:0,c:0});dirty=true;renderLog();renderDashboard();toast('Comida añadida — recuerda guardar')});
+
+document.getElementById('addFood').addEventListener('click',()=>{document.getElementById('foodModal').classList.add('open');document.getElementById('foodForm').reset();document.getElementById('foodForm').querySelector('[name=foodName]').focus()});
+document.getElementById('closeFoodModal').addEventListener('click',()=>document.getElementById('foodModal').classList.remove('open'));
+document.getElementById('foodModal').addEventListener('click',e=>{if(e.target===e.currentTarget)e.target.classList.remove('open')});
+document.getElementById('foodForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const food={name:fd.get('foodName'),brand:fd.get('foodBrand')||'',kcal:Number(fd.get('foodKcal'))||0,p:Number(fd.get('foodP'))||0,f:Number(fd.get('foodF'))||0,c:Number(fd.get('foodC'))||0,icon:fd.get('foodIcon')||'🥗'};
+  await saveFood(food);
+  foods.unshift(food);
+  renderFoods();
+  document.getElementById('foodModal').classList.remove('open');
+  toast('Alimento guardado en Supabase');
+});
+
 document.getElementById('settingsForm').addEventListener('submit',e=>{e.preventDefault();Object.keys(settings).forEach(k=>settings[k]=Number(e.target.elements[k].value)||0);saveSettings();render();toast('Objetivos actualizados')});
 
 init();

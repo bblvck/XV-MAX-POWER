@@ -97,7 +97,10 @@
           <strong id="logTarget">0 kcal</strong>
         </div>
         <div id="mealEditor" class="editor-list"></div>
-        <button id="addMeal" class="secondary-button">+ Añadir comida</button>
+        <div class="editor-actions">
+          <button id="addMeal" class="secondary-button">+ Añadir comida</button>
+          <button id="saveLogBtn" class="save-button">Guardar día</button>
+        </div>
         <div class="macro-panel">
           <div class="section-heading compact">
             <div>
@@ -202,6 +205,50 @@
       <button class="nav-item" data-nav="historial"><span>⌁</span><small>Progreso</small></button>
       <button class="nav-item" data-nav="ajustes"><span>⚙</span><small>Ajustes</small></button>
     </nav>
+  </div>
+
+  <!-- Modal nuevo alimento -->
+  <div id="foodModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Nuevo alimento</h2>
+        <button id="closeFoodModal" class="modal-close">&times;</button>
+      </div>
+      <form id="foodForm" class="modal-body">
+        <label>Nombre del alimento<input name="foodName" type="text" placeholder="Ej: Atún en lata" required></label>
+        <label>Marca / descripción<input name="foodBrand" type="text" placeholder="Ej: Por 100 g"></label>
+        <label>Icono (emoji)<input name="foodIcon" type="text" placeholder="Ej: 🐟" maxlength="2"></label>
+        <div class="modal-grid">
+          <label>kcal<input name="foodKcal" type="number" step="0.1" placeholder="0" required></label>
+          <label>Proteína (g)<input name="foodP" type="number" step="0.1" placeholder="0"></label>
+          <label>Grasa (g)<input name="foodF" type="number" step="0.1" placeholder="0"></label>
+          <label>HC (g)<input name="foodC" type="number" step="0.1" placeholder="0"></label>
+        </div>
+        <button class="primary-button" type="submit" style="width:100%;margin-top:8px">Guardar alimento</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal nuevo alimento -->
+  <div id="foodModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Nuevo alimento</h2>
+        <button id="closeFoodModal" class="modal-close">&times;</button>
+      </div>
+      <form id="foodForm" class="modal-body">
+        <label>Nombre del alimento<input name="foodName" type="text" placeholder="Ej: Atún en lata" required></label>
+        <label>Marca / descripción<input name="foodBrand" type="text" placeholder="Ej: Por 100 g"></label>
+        <label>Icono (emoji)<input name="foodIcon" type="text" placeholder="Ej: 🐟" maxlength="2"></label>
+        <div class="modal-grid">
+          <label>kcal<input name="foodKcal" type="number" step="0.1" placeholder="0" required></label>
+          <label>Proteína (g)<input name="foodP" type="number" step="0.1" placeholder="0"></label>
+          <label>Grasa (g)<input name="foodF" type="number" step="0.1" placeholder="0"></label>
+          <label>HC (g)<input name="foodC" type="number" step="0.1" placeholder="0"></label>
+        </div>
+        <button class="primary-button" type="submit" style="width:100%;margin-top:8px">Guardar alimento</button>
+      </form>
+    </div>
   </div>
 
   <div id="toast" class="toast" role="status"></div>
