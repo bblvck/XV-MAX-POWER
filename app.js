@@ -440,14 +440,14 @@ document.getElementById('foodForm').addEventListener('submit',async e=>{
   toast('Alimento guardado en Supabase');
 });
 
-document.getElementById('settingsForm').addEventListener('submit',e=>{
+document.getElementById('settingsForm').addEventListener('submit',async e=>{
   e.preventDefault();
   settings.weight=Number(e.target.elements.weight.value)||0;
   settings.height=Number(e.target.elements.height.value)||0;
   settings.age=Number(e.target.elements.age.value)||0;
   settings.activity=Number(e.target.elements.activity.value)||1.2;
   settings.surplus=Number(e.target.elements.surplus.value)||0;
-  saveSettings();render();toast('Objetivos actualizados');
+  try{await saveSettings();render();toast('Objetivos actualizados')}catch(err){console.error('saveSettings:',err);toast('Error al guardar')}
 });
 
 document.getElementById('settingsForm').addEventListener('input',e=>{
@@ -479,6 +479,7 @@ document.getElementById('profileForm').addEventListener('submit',async e=>{
     const d=await r.json();
     if(d.error)throw new Error(d.error_description||d.msg);
     currentUser=d;
+    await sb('profiles',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:currentUser.id,display_name:name})});
     document.getElementById('avatarBtn').textContent=userInitial();
     document.getElementById('todayGreeting').textContent=`Hola, ${name}`;
     toast('Nombre actualizado');
