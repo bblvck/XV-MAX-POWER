@@ -112,6 +112,10 @@ async function loadData(){
   foods=fRes||[];
   logs={};
   (lRes||[]).forEach(l=>{if(l.user_id===currentUser.id)logs[l.date]={meals:l.meals,user_id:l.user_id}});
+  const pRes=await sb(`profiles?id=eq.${currentUser.id}&select=display_name`);
+  if(pRes[0]&&pRes[0].display_name){
+    currentUser.user_metadata={...currentUser.user_metadata,name:pRes[0].display_name};
+  }
   loaded=true;
   render();
 }
@@ -176,6 +180,8 @@ function renderNav(){document.querySelectorAll('.view').forEach(v=>v.classList.t
 
 function renderDashboard(){
   const t=totals(),pct=Math.min(100,Math.round(t.kcal/target()*100));
+  const name=currentUser?.user_metadata?.name||currentUser?.email||'';
+  document.getElementById('todayGreeting').textContent=name?`Hola, ${name}`:'Vamos a por el objetivo.';
   document.getElementById('todayDate').textContent=dateLabel(selectedDate);
   document.getElementById('dashCalories').textContent=fmt(t.kcal);
   document.getElementById('dashTarget').textContent=fmt(target());
