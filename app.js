@@ -21,6 +21,8 @@ function todayISO(){return new Date().toISOString().slice(0,10)}
 function fmt(n,d=0){return Number(n||0).toLocaleString('es-ES',{maximumFractionDigits:d})}
 function dateLabel(iso){return new Date(iso+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}
 function target(){return Math.round((10*settings.weight+6.25*settings.height-5*settings.age+5)*settings.activity+settings.surplus)}
+function tmb(){return Math.round(10*settings.weight+6.25*settings.height-5*settings.age+5)}
+function tdee(){return Math.round(tmb()*settings.activity)}
 function dayIndex(){return(new Date(selectedDate+'T12:00:00').getDay()+6)%7}
 function userInitial(){return (currentUser?.user_metadata?.name||currentUser?.email||'?')[0].toUpperCase()}
 
@@ -223,8 +225,16 @@ function renderSettings(){
   if(f.elements.weight)f.elements.weight.value=settings.weight;
   if(f.elements.height)f.elements.height.value=settings.height;
   if(f.elements.age)f.elements.age.value=settings.age;
-  if(f.elements.activity)f.elements.activity.value=settings.activity;
+  if(f.elements.activity){
+    const sel=f.elements.activity;
+    const val=String(settings.activity);
+    if([...sel.options].some(o=>o.value===val))sel.value=val;
+    else{const opt=document.createElement('option');opt.value=val;opt.textContent=val+' — Personalizado';sel.add(opt);sel.value=val}
+  }
   if(f.elements.surplus)f.elements.surplus.value=settings.surplus;
+  document.getElementById('settingsTMB').textContent=fmt(tmb())+' kcal';
+  document.getElementById('settingsTDEE').textContent=fmt(tdee())+' kcal';
+  document.getElementById('settingsTarget').textContent=fmt(target())+' kcal';
 }
 
 // ── Admin panel ──
@@ -416,10 +426,50 @@ document.getElementById('foodForm').addEventListener('submit',async e=>{
 
 document.getElementById('settingsForm').addEventListener('submit',e=>{
   e.preventDefault();
-  Object.keys(settings).forEach(k=>settings[k]=Number(e.target.elements[k].value)||0);
+  settings.weight=Number(e.target.elements.weight.value)||0;
+  settings.height=Number(e.target.elements.height.value)||0;
+  settings.age=Number(e.target.elements.age.value)||0;
+  settings.activity=Number(e.target.elements.activity.value)||1.2;
+  settings.surplus=Number(e.target.elements.surplus.value)||0;
   saveSettings();render();toast('Objetivos actualizados');
 });
 
+document.getElementById('settingsForm').addEventListener('input',e=>{
+  const f=e.target.form;if(!f)return;
+  const w=Number(f.elements.weight.value)||settings.weight;
+  const h=Number(f.elements.height.value)||settings.height;
+  const a=Number(f.elements.age.value)||settings.age;
+  const act=Number(f.elements.activity.value)||1.2;
+  const sur=Number(f.elements.surplus.value)||0;
+  const bmr=Math.round(10*w+6.25*h-5*a+5);
+  const total=Math.round(bmr*act);
+  document.getElementById('settingsTMB').textContent=fmt(bmr)+' kcal';
+  document.getElementById('settingsTDEE').textContent=fmt(total)+' kcal';
+  document.getElementById('settingsTarget').textContent=fmt(total+sur)+' kcal';
+});
+
 document.getElementById('adminBack')?.addEventListener('click',()=>renderAdmin());
+
+document.getElementById('passwordForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const errEl=document.getElementById('passwordError');
+  errEl.textContent='';
+  const pw=fd.get('newPassword');
+  const pw2=fd.get('confirmPassword');
+  if(pw!==pw2){errEl.textContent='Las contraseñas no coinciden';return}
+  if(pw.length<6){errEl.textContent='Mínimo 6 caracteres';return}
+  try{
+    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
+      method:'PUT',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify({password:pw})
+    });
+    const d=await r.json();
+    if(d.error)throw new Error(d.error_description||d.msg||'Error al cambiar contraseña');
+    e.target.reset();
+    toast('Contraseña actualizada');
+  }catch(err){errEl.textContent=err.message}
+});
 
 init();
