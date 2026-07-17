@@ -32,7 +32,7 @@ function sb(path,opts={}){
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`,{
     ...opts,
     headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json',...opts.headers}
-  }).then(r=>{if(!r.ok)return[];return r.json()}).catch(()=>[]);
+  }).then(r=>{if(!r.ok){console.error('SB:',path,r.status);return[]}return r.json()}).catch(e=>{console.error('SB:',path,e);return[]});
 }
 
 // ── Auth ──
@@ -103,19 +103,23 @@ function showApp(){
 // ── Data loading ──
 async function loadData(){
   loaded=false;
-  const [sRes,fRes,lRes]=await Promise.all([
-    sb(`settings?user_id=eq.${currentUser.id}`),
-    sb('foods?order=created_at.desc'),
-    sb(`logs?order=date`)
-  ]);
-  if(sRes[0])settings={weight:sRes[0].weight,height:sRes[0].height,age:sRes[0].age,activity:sRes[0].activity,surplus:sRes[0].surplus};
-  foods=fRes||[];
-  logs={};
-  (lRes||[]).forEach(l=>{if(l.user_id===currentUser.id)logs[l.date]={meals:l.meals,user_id:l.user_id}});
-  const pRes=await sb(`profiles?id=eq.${currentUser.id}&select=display_name`);
-  if(pRes[0]&&pRes[0].display_name){
-    currentUser.user_metadata={...currentUser.user_metadata,name:pRes[0].display_name};
-  }
+  try{
+    const [sRes,fRes,lRes]=await Promise.all([
+      sb(`settings?user_id=eq.${currentUser.id}`),
+      sb('foods?order=created_at.desc'),
+      sb(`logs?user_id=eq.${currentUser.id}&order=date`)
+    ]);
+    if(sRes[0])settings={weight:sRes[0].weight,height:sRes[0].height,age:sRes[0].age,activity:sRes[0].activity,surplus:sRes[0].surplus};
+    foods=fRes||[];
+    logs={};
+    (lRes||[]).forEach(l=>{logs[l.date]={meals:l.meals,user_id:l.user_id}});
+    try{
+      const pRes=await sb(`profiles?id=eq.${currentUser.id}&select=display_name`);
+      if(pRes[0]&&pRes[0].display_name){
+        currentUser.user_metadata={...currentUser.user_metadata,name:pRes[0].display_name};
+      }
+    }catch(e){}
+  }catch(e){console.error('loadData error:',e)}
   loaded=true;
   render();
 }
@@ -175,7 +179,7 @@ async function saveFood(food){
 }
 
 // ── Render ──
-function render(){if(!loaded)return;renderNav();renderDashboard();renderLog();renderFoods();renderHistory();renderSettings();if(isAdmin)renderAdmin()}
+function render(){try{if(!loaded)return;renderNav();renderDashboard();renderLog();renderFoods();renderHistory();renderSettings();if(isAdmin)renderAdmin()}catch(e){console.error('render error:',e)}}
 function renderNav(){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active-view',v.id===selectedView));document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.nav===selectedView))}
 
 function renderDashboard(){
@@ -503,4 +507,4 @@ document.getElementById('passwordForm').addEventListener('submit',async e=>{
   }catch(err){errEl.textContent=err.message}
 });
 
-init();
+init().catch(e=>{console.error('init error:',e);showAuth()});
