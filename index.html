@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0a0e1a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Javi Calorías</title>
+  <title>JAVI CHEATS</title>
   <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
@@ -18,7 +18,7 @@
   <div id="authScreen" class="auth-screen">
     <div class="auth-card">
       <div class="auth-logo">JC</div>
-      <h1 class="auth-title">Javi Calorías</h1>
+      <h1 class="auth-title">JAVI CHEATS</h1>
       <p class="auth-subtitle">Seguimiento nutricional personal</p>
 
       <form id="loginForm" class="auth-form">
@@ -45,7 +45,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">Seguimiento personal</p>
-        <h1 id="appTitle">Javi Calorías</h1>
+        <h1 id="appTitle">JAVI CHEATS</h1>
       </div>
       <div class="topbar-right">
         <button class="avatar" id="avatarBtn" aria-label="Abrir ajustes" data-nav="ajustes">J</button>
@@ -105,7 +105,12 @@
           <div class="tdee-row accent"><span>Objetivo diario</span><strong id="settingsTarget">— kcal</strong></div>
         </div>
 
-        <form id="settingsForm" class="settings-card">
+        <form id="profileForm" class="settings-card">
+          <label>Tu nombre<input name="displayName" type="text" placeholder="Cómo te llamas"></label>
+          <button class="primary-button" type="submit" style="width:100%">Actualizar nombre</button>
+        </form>
+
+        <form id="settingsForm" class="settings-card" style="margin-top:14px">
           <label>Peso actual (kg)<input name="weight" type="number" step="0.1"></label>
           <label>Altura (cm)<input name="height" type="number"></label>
           <label>Edad<input name="age" type="number"></label>

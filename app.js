@@ -91,9 +91,13 @@ function showAuth(){
 function showApp(){
   document.getElementById('authScreen').style.display='none';
   document.getElementById('appMain').style.display='';
+  selectedView='dashboard';
+  const name=currentUser?.user_metadata?.name||currentUser?.email||'';
   document.getElementById('avatarBtn').textContent=userInitial();
-  document.getElementById('appTitle').textContent=isAdmin?'Javi Calorías · Admin':'Javi Calorías';
+  document.getElementById('appTitle').textContent=isAdmin?'JAVI CHEATS · Admin':'JAVI CHEATS';
+  document.getElementById('todayGreeting').textContent=`Hola, ${name}`;
   document.querySelectorAll('.admin-nav').forEach(b=>b.classList.toggle('visible',isAdmin));
+  render();
 }
 
 // ── Data loading ──
@@ -235,6 +239,8 @@ function renderSettings(){
   document.getElementById('settingsTMB').textContent=fmt(tmb())+' kcal';
   document.getElementById('settingsTDEE').textContent=fmt(tdee())+' kcal';
   document.getElementById('settingsTarget').textContent=fmt(target())+' kcal';
+  const pf=document.getElementById('profileForm');
+  if(pf&&pf.elements.displayName)pf.elements.displayName.value=currentUser?.user_metadata?.name||'';
 }
 
 // ── Admin panel ──
@@ -449,6 +455,25 @@ document.getElementById('settingsForm').addEventListener('input',e=>{
 });
 
 document.getElementById('adminBack')?.addEventListener('click',()=>renderAdmin());
+
+document.getElementById('profileForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=e.target.elements.displayName.value.trim();
+  if(!name){toast('Introduce un nombre');return}
+  try{
+    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
+      method:'PUT',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify({data:{name}})
+    });
+    const d=await r.json();
+    if(d.error)throw new Error(d.error_description||d.msg);
+    currentUser=d;
+    document.getElementById('avatarBtn').textContent=userInitial();
+    document.getElementById('todayGreeting').textContent=`Hola, ${name}`;
+    toast('Nombre actualizado');
+  }catch(err){toast(err.message)}
+});
 
 document.getElementById('passwordForm').addEventListener('submit',async e=>{
   e.preventDefault();
