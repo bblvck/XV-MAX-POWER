@@ -10,38 +10,125 @@ const weekData=[
  {name:'Semana 4',start:56.45,end:null,calories:[2166,2159,2089,3801,2600,2350,2480],targets:[2416,2416,2416,2416,2416,2416,2416],protein:[107,108.1,134.3,169,141.7,132.5,148.4],fat:[68.9,61.5,47.5,110.2,65.5,61.3,63.5],carbs:[278.6,282.2,272.8,472.1,349.8,300.6,334.4],meals:[[518,942,253,353,100],[335,995,327,502,0],[373,828,398,490,0],[445,1274,1214,434,0],[518,1074,570,438,0],[536,991,430,393,0],[548,1110,484,338,0]]}
 ];
 
-function sb(path,opts={}){return fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...opts,headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,...opts.headers}}).then(r=>r.json())}
-
+let currentUser=null, accessToken=null, isAdmin=false;
 let settings={weight:56.45,height:165,age:26,activity:1.2,surplus:150};
 let foods=[];
 let logs={};
 let selectedView='dashboard',selectedWeek=0,selectedDate=todayISO();
-let loaded=false;
-let dirty=false;
+let loaded=false, dirty=false;
 
 function todayISO(){return new Date().toISOString().slice(0,10)}
 function fmt(n,d=0){return Number(n||0).toLocaleString('es-ES',{maximumFractionDigits:d})}
 function dateLabel(iso){return new Date(iso+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}
 function target(){return Math.round((10*settings.weight+6.25*settings.height-5*settings.age+5)*settings.activity+settings.surplus)}
 function dayIndex(){return(new Date(selectedDate+'T12:00:00').getDay()+6)%7}
+function userInitial(){return (currentUser?.user_metadata?.name||currentUser?.email||'?')[0].toUpperCase()}
 
-async function init(){
+// ── Supabase REST helper ──
+function sb(path,opts={}){
+  const token=accessToken||SUPABASE_KEY;
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`,{
+    ...opts,
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json',...opts.headers}
+  }).then(r=>{if(!r.ok)return[];return r.json()}).catch(()=>[]);
+}
+
+// ── Auth ──
+async function signUp(email,password,name){
+  const r=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{
+    method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password,data:{name}})
+  });
+  const d=await r.json();
+  if(d.error)throw new Error(d.error_description||d.msg||'Error al registrar');
+  return d;
+}
+
+async function signIn(email,password){
+  const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{
+    method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const d=await r.json();
+  if(d.error)throw new Error(d.error_description||d.msg||'Credenciales incorrectas');
+  return d;
+}
+
+async function refreshSession(refreshToken){
+  const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+    method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({refresh_token:refreshToken})
+  });
+  const d=await r.json();
+  if(d.error)throw new Error('Session expired');
+  return d;
+}
+
+async function signOut(){
+  try{
+    if(accessToken)await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`}});
+  }catch(e){}
+  currentUser=null;accessToken=null;isAdmin=false;
+  localStorage.removeItem('jc_refresh');
+  showAuth();
+}
+
+function setSession(data){
+  currentUser=data.user;
+  accessToken=data.access_token;
+  isAdmin=!!(currentUser?.user_metadata?.role==='admin');
+  localStorage.setItem('jc_refresh',data.refresh_token);
+}
+
+function showAuth(){
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('appMain').style.display='none';
+  document.getElementById('avatarBtn').textContent='?';
+}
+
+function showApp(){
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('appMain').style.display='';
+  document.getElementById('avatarBtn').textContent=userInitial();
+  document.getElementById('appTitle').textContent=isAdmin?'Javi Calorías · Admin':'Javi Calorías';
+  document.querySelectorAll('.admin-nav').forEach(b=>b.classList.toggle('visible',isAdmin));
+}
+
+// ── Data loading ──
+async function loadData(){
+  loaded=false;
   const [sRes,fRes,lRes]=await Promise.all([
-    sb('settings?id=eq.default'),
+    sb(`settings?user_id=eq.${currentUser.id}`),
     sb('foods?order=created_at.desc'),
-    sb('logs?order=date')
+    sb(`logs?order=date`)
   ]);
   if(sRes[0])settings={weight:sRes[0].weight,height:sRes[0].height,age:sRes[0].age,activity:sRes[0].activity,surplus:sRes[0].surplus};
   foods=fRes||[];
-  lRes.forEach(l=>{logs[l.date]={meals:l.meals}});
+  logs={};
+  (lRes||[]).forEach(l=>{if(l.user_id===currentUser.id)logs[l.date]={meals:l.meals,user_id:l.user_id}});
   loaded=true;
   render();
 }
 
+async function init(){
+  const saved=localStorage.getItem('jc_refresh');
+  if(saved){
+    try{
+      const d=await refreshSession(saved);
+      setSession(d);
+      showApp();
+      await loadData();
+      return;
+    }catch(e){localStorage.removeItem('jc_refresh')}
+  }
+  showAuth();
+}
+
+// ── Log helpers ──
 function getLog(){
   if(!logs[selectedDate]){
     const w=weekData[selectedWeek],di=dayIndex(),m=w.meals[di]||[0,0,0,0,0];
-    logs[selectedDate]={meals:mealNames.map((name,i)=>({name,kcal:m[i]||0,p:Math.round((w.protein[di]||0)*(i===1?.42:.15)),f:Math.round((w.fat[di]||0)*(i===1?.45:.14)),c:Math.round((w.carbs[di]||0)*(i===1?.42:.15))}))};
+    logs[selectedDate]={meals:mealNames.map((name,i)=>({name,kcal:m[i]||0,p:Math.round((w.protein[di]||0)*(i===1?.42:.15)),f:Math.round((w.fat[di]||0)*(i===1?.45:.14)),c:Math.round((w.carbs[di]||0)*(i===1?.42:.15))})),user_id:currentUser.id};
   }
   return logs[selectedDate];
 }
@@ -50,33 +137,35 @@ function totals(log=getLog()){
   return log.meals.reduce((a,m)=>({kcal:a.kcal+Number(m.kcal||0),p:a.p+Number(m.p||0),f:a.f+Number(m.f||0),c:a.c+Number(m.c||0)}),{kcal:0,p:0,f:0,c:0});
 }
 
+// ── Save ──
 async function saveLog(){
   const log=logs[selectedDate];
   if(!log)return;
-  await fetch(`${SUPABASE_URL}/rest/v1/logs?date=eq.${selectedDate}`,{
+  await fetch(`${SUPABASE_URL}/rest/v1/logs?user_id=eq.${currentUser.id}&date=eq.${selectedDate}`,{
     method:'POST',
-    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-    body:JSON.stringify({date:selectedDate,meals:log.meals})
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+    body:JSON.stringify({user_id:currentUser.id,date:selectedDate,meals:log.meals})
   });
 }
 
 async function saveSettings(){
-  await fetch(`${SUPABASE_URL}/rest/v1/settings?id=eq.default`,{
+  await fetch(`${SUPABASE_URL}/rest/v1/settings?user_id=eq.${currentUser.id}`,{
     method:'POST',
-    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-    body:JSON.stringify({id:'default',weight:settings.weight,height:settings.height,age:settings.age,activity:settings.activity,surplus:settings.surplus,updated_at:new Date().toISOString()})
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+    body:JSON.stringify({user_id:currentUser.id,weight:settings.weight,height:settings.height,age:settings.age,activity:settings.activity,surplus:settings.surplus,updated_at:new Date().toISOString()})
   });
 }
 
 async function saveFood(food){
   await fetch(`${SUPABASE_URL}/rest/v1/foods`,{
     method:'POST',
-    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
-    body:JSON.stringify(food)
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+    body:JSON.stringify({...food,user_id:currentUser.id})
   });
 }
 
-function render(){if(!loaded)return;renderNav();renderDashboard();renderLog();renderFoods();renderHistory();renderSettings()}
+// ── Render ──
+function render(){if(!loaded)return;renderNav();renderDashboard();renderLog();renderFoods();renderHistory();renderSettings();if(isAdmin)renderAdmin()}
 function renderNav(){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active-view',v.id===selectedView));document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.nav===selectedView))}
 
 function renderDashboard(){
@@ -138,9 +227,145 @@ function renderSettings(){
   if(f.elements.surplus)f.elements.surplus.value=settings.surplus;
 }
 
+// ── Admin panel ──
+let adminData={profiles:[],settings:[],logs:[]};
+
+async function loadAdminData(){
+  const [profiles,settingsList,logsList]=await Promise.all([
+    sb('profiles?select=id,display_name,created_at&order=created_at.desc'),
+    sb('settings?select=*'),
+    sb('logs?select=user_id,date,meals&order=user_id,date')
+  ]);
+  adminData={profiles:profiles||[],settings:settingsList||[],logs:logsList||[]};
+}
+
+async function renderAdmin(){
+  await loadAdminData();
+  const list=document.getElementById('adminUserList');
+  const detail=document.getElementById('adminDetail');
+  if(!list)return;
+  detail.style.display='none';
+  list.style.display='';
+
+  if(!adminData.profiles.length){
+    list.innerHTML='<div class="admin-empty"><strong>No hay usuarios</strong><p>Espera a que se registren usuarios.</p></div>';
+    return;
+  }
+
+  const today=todayISO();
+  list.innerHTML=adminData.profiles.map(p=>{
+    const s=adminData.settings.find(s=>s.user_id===p.id)||{};
+    const todayLog=adminData.logs.find(l=>l.user_id===p.id&&l.date===today);
+    const todayCal=todayLog?(todayLog.meals||[]).reduce((a,m)=>a+Number(m.kcal||0),0):0;
+    const initial=(p.display_name||p.id.slice(0,8))[0].toUpperCase();
+    return `<div class="admin-user-card" data-uid="${p.id}">
+      <div class="admin-avatar">${initial}</div>
+      <div class="admin-user-info">
+        <strong>${p.display_name||'Sin nombre'}</strong>
+        <span>Registro: ${new Date(p.created_at).toLocaleDateString('es-ES')}</span>
+      </div>
+      <div class="admin-user-stats">
+        <div class="admin-stat"><span>Hoy</span><strong>${fmt(todayCal)}</strong></div>
+        <div class="admin-stat"><span>Peso</span><strong>${s.weight?fmt(s.weight,2)+' kg':'—'}</strong></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.admin-user-card').forEach(card=>{
+    card.addEventListener('click',()=>showAdminDetail(card.dataset.uid));
+  });
+}
+
+function showAdminDetail(uid){
+  const p=adminData.profiles.find(p=>p.id===uid);
+  const s=adminData.settings.find(s=>s.user_id===uid)||{};
+  const userLogs=adminData.logs.filter(l=>l.user_id===uid).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,14);
+  const initial=(p?.display_name||uid.slice(0,8))[0].toUpperCase();
+
+  const userSettings={weight:s.weight||56,height:s.height||165,age:s.age||26,activity:s.activity||1.2,surplus:s.surplus||150};
+  const tdee=Math.round((10*userSettings.weight+6.25*userSettings.height-5*userSettings.age+5)*userSettings.activity+userSettings.surplus);
+
+  const last7=userLogs.slice(0,7);
+  const avgCal=last7.length?Math.round(last7.reduce((a,l)=>a+(l.meals||[]).reduce((s,m)=>s+Number(m.kcal||0),0),0)/last7.length):0;
+  const avgProt=last7.length?+(last7.reduce((a,l)=>a+(l.meals||[]).reduce((s,m)=>s+Number(m.p||0),0),0)/last7.length).toFixed(1):0;
+
+  document.getElementById('adminUserList').style.display='none';
+  const detail=document.getElementById('adminDetail');
+  detail.style.display='';
+
+  document.getElementById('adminDetailContent').innerHTML=`
+    <div class="admin-detail-header">
+      <div class="admin-detail-avatar">${initial}</div>
+      <div class="admin-detail-info">
+        <strong>${p?.display_name||'Sin nombre'}</strong>
+        <span>${p?.id?.slice(0,8)}… · Registro ${new Date(p?.created_at).toLocaleDateString('es-ES')}</span>
+      </div>
+    </div>
+    <div class="admin-detail-stats">
+      <article class="metric-card"><span>Objetivo</span><strong>${fmt(tdee)}</strong><small>kcal/día</small></article>
+      <article class="metric-card"><span>Media 7d</span><strong>${fmt(avgCal)}</strong><small>kcal</small></article>
+      <article class="metric-card"><span>Prot. media</span><strong>${fmt(avgProt,1)}</strong><small>g</small></article>
+    </div>
+    <div class="section-heading compact"><div><p class="eyebrow">Últimos registros</p><h2>Diario</h2></div></div>
+    ${userLogs.length?userLogs.map(l=>{
+      const cal=(l.meals||[]).reduce((a,m)=>a+Number(m.kcal||0),0);
+      const prot=(l.meals||[]).reduce((a,m)=>a+Number(m.p||0),0);
+      const pct=Math.min(100,Math.round(cal/tdee*100));
+      return `<div class="admin-week-row">
+        <span>${new Date(l.date+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}</span>
+        <strong>${fmt(cal)} kcal · ${fmt(prot,1)}g prot · ${pct}%</strong>
+      </div>`;
+    }).join(''):'<div class="admin-empty"><p>Sin registros recientes</p></div>'}
+  `;
+}
+
+// ── Toast ──
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800)}
 
-document.addEventListener('click',e=>{const nav=e.target.closest('[data-nav]');if(nav){selectedView=nav.dataset.nav;render();window.scrollTo({top:0,behavior:'smooth'})}});
+// ── Event listeners ──
+document.addEventListener('click',e=>{
+  const nav=e.target.closest('[data-nav]');
+  if(nav){
+    selectedView=nav.dataset.nav;
+    render();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+});
+
+document.getElementById('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const errEl=document.getElementById('authError');
+  errEl.textContent='';
+  try{
+    const d=await signIn(fd.get('email'),fd.get('password'));
+    setSession(d);
+    showApp();
+    await loadData();
+    toast('Sesión iniciada');
+  }catch(err){errEl.textContent=err.message}
+});
+
+document.getElementById('registerForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const errEl=document.getElementById('authError');
+  errEl.textContent='';
+  try{
+    const d=await signUp(fd.get('email'),fd.get('password'),fd.get('name'));
+    if(d.user&&d.access_token){
+      setSession(d);
+      showApp();
+      await loadData();
+      toast('Cuenta creada — ¡bienvenido!');
+    }else{
+      errEl.textContent='Revisa tu email para confirmar la cuenta.';
+    }
+  }catch(err){errEl.textContent=err.message}
+});
+
+document.getElementById('logoutBtn').addEventListener('click',signOut);
+
 document.getElementById('datePicker').addEventListener('change',e=>{selectedDate=e.target.value;dirty=false;render()});
 document.getElementById('weekSelect').addEventListener('change',e=>{selectedWeek=Number(e.target.value);renderHistory()});
 document.getElementById('foodSearch').addEventListener('input',renderFoods);
@@ -165,12 +390,9 @@ document.getElementById('mealEditor').addEventListener('input',e=>{
 document.getElementById('saveLogBtn').addEventListener('click',async()=>{
   if(!dirty)return;
   const btn=document.getElementById('saveLogBtn');
-  btn.textContent='Guardando...';
-  btn.disabled=true;
+  btn.textContent='Guardando...';btn.disabled=true;
   await saveLog();
-  dirty=false;
-  btn.textContent='Guardado ✓';
-  btn.classList.remove('dirty');
+  dirty=false;btn.textContent='Guardado ✓';btn.classList.remove('dirty');
   renderDashboard();
   setTimeout(()=>{btn.textContent='Guardar día';btn.disabled=false},1200);
   toast('Guardado en Supabase');
@@ -192,6 +414,12 @@ document.getElementById('foodForm').addEventListener('submit',async e=>{
   toast('Alimento guardado en Supabase');
 });
 
-document.getElementById('settingsForm').addEventListener('submit',e=>{e.preventDefault();Object.keys(settings).forEach(k=>settings[k]=Number(e.target.elements[k].value)||0);saveSettings();render();toast('Objetivos actualizados')});
+document.getElementById('settingsForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  Object.keys(settings).forEach(k=>settings[k]=Number(e.target.elements[k].value)||0);
+  saveSettings();render();toast('Objetivos actualizados');
+});
+
+document.getElementById('adminBack')?.addEventListener('click',()=>renderAdmin());
 
 init();

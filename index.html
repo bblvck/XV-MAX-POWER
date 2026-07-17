@@ -7,24 +7,53 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Javi Calorías</title>
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
 
-  <div class="app-shell">
+  <!-- Pantalla de Auth -->
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">JC</div>
+      <h1 class="auth-title">Javi Calorías</h1>
+      <p class="auth-subtitle">Seguimiento nutricional personal</p>
+
+      <form id="loginForm" class="auth-form">
+        <label>Email<input name="email" type="email" placeholder="tu@email.com" required autocomplete="email"></label>
+        <label>Contraseña<input name="password" type="password" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="current-password"></label>
+        <button class="primary-button" type="submit" style="width:100%">Iniciar sesión</button>
+      </form>
+
+      <div class="auth-divider"><span>o</span></div>
+
+      <form id="registerForm" class="auth-form">
+        <label>Nombre<input name="name" type="text" placeholder="Cómo te llamas" required></label>
+        <label>Email<input name="email" type="email" placeholder="tu@email.com" required autocomplete="email"></label>
+        <label>Contraseña<input name="password" type="password" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password"></label>
+        <button class="primary-button" type="submit" style="width:100%">Crear cuenta</button>
+      </form>
+
+      <p id="authError" class="auth-error"></p>
+    </div>
+  </div>
+
+  <!-- App principal (oculta hasta login) -->
+  <div id="appMain" class="app-shell" style="display:none">
     <header class="topbar">
       <div>
         <p class="eyebrow">Seguimiento personal</p>
-        <h1>Javi Calorías</h1>
+        <h1 id="appTitle">Javi Calorías</h1>
       </div>
-      <button class="avatar" aria-label="Abrir ajustes" data-nav="ajustes">J</button>
+      <div class="topbar-right">
+        <button class="avatar" id="avatarBtn" aria-label="Abrir ajustes" data-nav="ajustes">J</button>
+        <button id="logoutBtn" class="logout-btn" title="Cerrar sesión">⏻</button>
+      </div>
     </header>
 
     <main>
-      <!-- Dashboard -->
       <section id="dashboard" class="view active-view">
         <div class="hero-card">
           <div class="hero-text">
@@ -34,166 +63,58 @@
           </div>
           <div class="ring" id="calorieRing"><span id="ringValue">0%</span></div>
         </div>
-
         <div class="metric-grid">
-          <article class="metric-card">
-            <span>Consumidas</span>
-            <strong id="dashCalories">0</strong>
-            <small>kcal</small>
-          </article>
-          <article class="metric-card">
-            <span>Objetivo</span>
-            <strong id="dashTarget">0</strong>
-            <small>kcal</small>
-          </article>
-          <article class="metric-card">
-            <span>Proteínas</span>
-            <strong id="dashProtein">0</strong>
-            <small>g</small>
-          </article>
-          <article class="metric-card">
-            <span>Superávit</span>
-            <strong id="dashSurplus">0</strong>
-            <small>kcal</small>
-          </article>
+          <article class="metric-card"><span>Consumidas</span><strong id="dashCalories">0</strong><small>kcal</small></article>
+          <article class="metric-card"><span>Objetivo</span><strong id="dashTarget">0</strong><small>kcal</small></article>
+          <article class="metric-card"><span>Proteínas</span><strong id="dashProtein">0</strong><small>g</small></article>
+          <article class="metric-card"><span>Superávit</span><strong id="dashSurplus">0</strong><small>kcal</small></article>
         </div>
-
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Plan de hoy</p>
-            <h2>Comidas</h2>
-          </div>
-          <button class="text-button" data-nav="registro">Editar</button>
-        </div>
+        <div class="section-heading"><div><p class="eyebrow">Plan de hoy</p><h2>Comidas</h2></div><button class="text-button" data-nav="registro">Editar</button></div>
         <div id="mealSummary" class="meal-list"></div>
-
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Tendencia</p>
-            <h2>Peso reciente</h2>
-          </div>
-          <button class="text-button" data-nav="historial">Ver todo</button>
-        </div>
-        <div class="weight-card">
-          <div class="weight-copy">
-            <strong id="currentWeight">— kg</strong>
-            <span id="weightDelta">Añade tu peso final</span>
-          </div>
-          <div class="sparkline" id="weightSparkline"></div>
-        </div>
+        <div class="section-heading"><div><p class="eyebrow">Tendencia</p><h2>Peso reciente</h2></div><button class="text-button" data-nav="historial">Ver todo</button></div>
+        <div class="weight-card"><div class="weight-copy"><strong id="currentWeight">— kg</strong><span id="weightDelta">Añade tu peso final</span></div><div class="sparkline" id="weightSparkline"></div></div>
       </section>
 
-      <!-- Registro -->
       <section id="registro" class="view">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Registro diario</p>
-            <h2>Tu día</h2>
-          </div>
-          <input id="datePicker" class="date-input" type="date">
-        </div>
-        <div class="goal-strip">
-          <span>Objetivo del día</span>
-          <strong id="logTarget">0 kcal</strong>
-        </div>
+        <div class="section-heading"><div><p class="eyebrow">Registro diario</p><h2>Tu día</h2></div><input id="datePicker" class="date-input" type="date"></div>
+        <div class="goal-strip"><span>Objetivo del día</span><strong id="logTarget">0 kcal</strong></div>
         <div id="mealEditor" class="editor-list"></div>
-        <div class="editor-actions">
-          <button id="addMeal" class="secondary-button">+ Añadir comida</button>
-          <button id="saveLogBtn" class="save-button">Guardar día</button>
-        </div>
-        <div class="macro-panel">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">Totales</p>
-              <h2>Macros</h2>
-            </div>
-          </div>
-          <div id="macroBars"></div>
-        </div>
+        <div class="editor-actions"><button id="addMeal" class="secondary-button">+ Añadir comida</button><button id="saveLogBtn" class="save-button">Guardar día</button></div>
+        <div class="macro-panel"><div class="section-heading compact"><div><p class="eyebrow">Totales</p><h2>Macros</h2></div></div><div id="macroBars"></div></div>
       </section>
 
-      <!-- Alimentos -->
       <section id="alimentos" class="view">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Biblioteca</p>
-            <h2>Alimentos</h2>
-          </div>
-          <button id="addFood" class="primary-button">+ Nuevo</button>
-        </div>
-        <label class="search-box">
-          <span>⌕</span>
-          <input id="foodSearch" placeholder="Buscar alimento o marca">
-        </label>
+        <div class="section-heading"><div><p class="eyebrow">Biblioteca</p><h2>Alimentos</h2></div><button id="addFood" class="primary-button">+ Nuevo</button></div>
+        <label class="search-box"><span>⌕</span><input id="foodSearch" placeholder="Buscar alimento o marca"></label>
         <div id="foodList" class="food-list"></div>
       </section>
 
-      <!-- Historial -->
       <section id="historial" class="view">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Progreso</p>
-            <h2>Historial</h2>
-          </div>
-          <select id="weekSelect" class="select-input"></select>
-        </div>
-        <div class="history-highlight">
-          <div>
-            <span>Peso inicial</span>
-            <strong id="historyStart">—</strong>
-          </div>
-          <div>
-            <span>Peso final</span>
-            <strong id="historyEnd">—</strong>
-          </div>
-          <div>
-            <span>Cambio</span>
-            <strong id="historyChange">—</strong>
-          </div>
-        </div>
-        <div class="chart-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">Calorías por día</p>
-              <h2>Consumo vs objetivo</h2>
-            </div>
-          </div>
-          <div id="calorieChart" class="bar-chart"></div>
-          <div class="legend">
-            <span><i class="dot consumed"></i>Consumidas</span>
-            <span><i class="dot target"></i>Objetivo</span>
-          </div>
-        </div>
-        <div class="chart-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">Media semanal</p>
-              <h2>Macros</h2>
-            </div>
-          </div>
-          <div id="weekMacros" class="macro-summary"></div>
-        </div>
+        <div class="section-heading"><div><p class="eyebrow">Progreso</p><h2>Historial</h2></div><select id="weekSelect" class="select-input"></select></div>
+        <div class="history-highlight"><div><span>Peso inicial</span><strong id="historyStart">—</strong></div><div><span>Peso final</span><strong id="historyEnd">—</strong></div><div><span>Cambio</span><strong id="historyChange">—</strong></div></div>
+        <div class="chart-card"><div class="section-heading compact"><div><p class="eyebrow">Calorías por día</p><h2>Consumo vs objetivo</h2></div></div><div id="calorieChart" class="bar-chart"></div><div class="legend"><span><i class="dot consumed"></i>Consumidas</span><span><i class="dot target"></i>Objetivo</span></div></div>
+        <div class="chart-card"><div class="section-heading compact"><div><p class="eyebrow">Media semanal</p><h2>Macros</h2></div></div><div id="weekMacros" class="macro-summary"></div></div>
       </section>
 
-      <!-- Ajustes -->
       <section id="ajustes" class="view">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Configuración</p>
-            <h2>Objetivos</h2>
-          </div>
-        </div>
+        <div class="section-heading"><div><p class="eyebrow">Configuración</p><h2>Objetivos</h2></div></div>
         <form id="settingsForm" class="settings-card">
           <label>Peso actual (kg)<input name="weight" type="number" step="0.1"></label>
           <label>Altura (cm)<input name="height" type="number"></label>
           <label>Edad<input name="age" type="number"></label>
           <label>Actividad diaria<input name="activity" type="number" step="0.05"></label>
           <label>Extra para volumen (kcal)<input name="surplus" type="number"></label>
-          <button class="primary-button" type="submit">Guardar cambios</button>
+          <button class="primary-button" type="submit" style="width:100%">Guardar cambios</button>
         </form>
-        <div class="notice">
-          <strong>Próximas mejoras</strong>
-          <p>Importar productos desde un catálogo, recetas con ingredientes y sincronización en la nube cuando el sitio esté disponible.</p>
+        <div class="notice"><strong>Próximas mejoras</strong><p>Importar productos desde un catálogo, recetas con ingredientes y sincronización en la nube.</p></div>
+      </section>
+
+      <section id="admin" class="view">
+        <div class="section-heading"><div><p class="eyebrow">Panel de administración</p><h2>Usuarios</h2></div></div>
+        <div id="adminUserList" class="admin-user-list"></div>
+        <div id="adminDetail" style="display:none">
+          <button class="text-button" id="adminBack">← Volver a la lista</button>
+          <div id="adminDetailContent"></div>
         </div>
       </section>
     </main>
@@ -204,6 +125,7 @@
       <button class="nav-item" data-nav="alimentos"><span>◈</span><small>Alimentos</small></button>
       <button class="nav-item" data-nav="historial"><span>⌁</span><small>Progreso</small></button>
       <button class="nav-item" data-nav="ajustes"><span>⚙</span><small>Ajustes</small></button>
+      <button class="nav-item admin-nav" data-nav="admin"><span>👑</span><small>Admin</small></button>
     </nav>
   </div>
 
@@ -229,29 +151,7 @@
     </div>
   </div>
 
-  <!-- Modal nuevo alimento -->
-  <div id="foodModal" class="modal-overlay">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>Nuevo alimento</h2>
-        <button id="closeFoodModal" class="modal-close">&times;</button>
-      </div>
-      <form id="foodForm" class="modal-body">
-        <label>Nombre del alimento<input name="foodName" type="text" placeholder="Ej: Atún en lata" required></label>
-        <label>Marca / descripción<input name="foodBrand" type="text" placeholder="Ej: Por 100 g"></label>
-        <label>Icono (emoji)<input name="foodIcon" type="text" placeholder="Ej: 🐟" maxlength="2"></label>
-        <div class="modal-grid">
-          <label>kcal<input name="foodKcal" type="number" step="0.1" placeholder="0" required></label>
-          <label>Proteína (g)<input name="foodP" type="number" step="0.1" placeholder="0"></label>
-          <label>Grasa (g)<input name="foodF" type="number" step="0.1" placeholder="0"></label>
-          <label>HC (g)<input name="foodC" type="number" step="0.1" placeholder="0"></label>
-        </div>
-        <button class="primary-button" type="submit" style="width:100%;margin-top:8px">Guardar alimento</button>
-      </form>
-    </div>
-  </div>
-
   <div id="toast" class="toast" role="status"></div>
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
