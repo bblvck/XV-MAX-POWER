@@ -1,5 +1,10 @@
--- Seed fictitious daily logs for all 10 test users (last 5-7 days)
--- Uses generic diet meals with realistic macros
+-- Add unique constraint if missing
+DO $$ BEGIN
+  ALTER TABLE public.logs ADD CONSTRAINT logs_user_date_unique UNIQUE (user_id, date);
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
+
+-- Seed fictitious daily logs for all 10 test users (last 6 days)
 
 DO $$
 DECLARE
